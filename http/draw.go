@@ -1,4 +1,4 @@
-package wasabeehttps
+package wasabeehttp
 
 import (
 	"encoding/json"

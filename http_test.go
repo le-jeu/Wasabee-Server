@@ -6,7 +6,7 @@ import (
 )
 
 // nothing to do here, just run the code
-func TestHttps(t *testing.T) {
+func TestHttp(t *testing.T) {
 	wasabee.SetWebroot("testing")
 	b, err := wasabee.GetWebroot()
 	if err != nil {

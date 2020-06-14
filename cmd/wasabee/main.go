@@ -41,11 +41,14 @@ var flags = []cli.Flag{
 		Name: "log", EnvVar: "LOGFILE", Value: "logs/wasabee.log",
 		Usage: "output log file"},
 	cli.StringFlag{
-		Name: "https", EnvVar: "HTTPS_LISTEN", Value: ":443",
+		Name: "https", EnvVar: "HTTPS_LISTEN", Value: "none",
 		Usage: "HTTPS listen address"},
 	cli.StringFlag{
-		Name: "httpslog", EnvVar: "HTTPS_LOGFILE", Value: "logs/wasabee-https.log",
-		Usage: "HTTPS log file."},
+		Name: "http", EnvVar: "HTTP_LISTEN", Value: "none",
+		Usage: "HTTP listen address"},
+	cli.StringFlag{
+		Name: "httplog", EnvVar: "HTTP_LOGFILE", Value: "logs/wasabee-http.log",
+		Usage: "HTTP log file."},
 	cli.StringFlag{
 		Name: "frontend-path, p", EnvVar: "FRONTEND_PATH", Value: "./frontend",
 		Usage: "Location of the frontend files."},
@@ -214,8 +217,8 @@ func run(c *cli.Context) error {
 
 	// Serve HTTPS
 	if c.String("https") != "none" {
-		go wasabeehttps.StartHTTP(wasabeehttps.Configuration{
-			ListenHTTPS:  c.String("https"),
+		go wasabeehttp.StartHTTP(wasabeehttp.Configuration{
+			ListenHTTP:  c.String("https"),
 			FrontendPath: c.String("frontend-path"),
 			Root:         c.String("root"),
 			CertDir:      c.String("certs"),
@@ -231,8 +234,31 @@ func run(c *cli.Context) error {
 			},
 			OauthUserInfoURL: c.String("oauth-userinfo"),
 			CookieSessionKey: c.String("sessionkey"),
-			Logfile:          c.String("httpslog"),
+			Logfile:          c.String("httplog"),
 			TemplateSet:      ts,
+			UseHTTPS:         true,
+		})
+	} else if c.String("http") != "none" {
+		go wasabeehttp.StartHTTP(wasabeehttp.Configuration{
+			ListenHTTP:       c.String("http"),
+			FrontendPath:     c.String("frontend-path"),
+			Root:             c.String("root"),
+			CertDir:          c.String("certs"),
+			OauthConfig:  &oauth2.Config {
+				ClientID: c.String("oauth-clientid"),
+				ClientSecret: c.String("oauth-secret"),
+				Scopes: []string{"profile email"},
+				Endpoint: oauth2.Endpoint {
+					AuthURL: c.String("oauth-authurl"),
+					TokenURL: c.String("oauth-tokenurl"),
+					AuthStyle: oauth2.AuthStyleInParams,
+				},
+			},
+			OauthUserInfoURL: c.String("oauth-userinfo"),
+			CookieSessionKey: c.String("sessionkey"),
+			Logfile:          c.String("httplog"),
+			TemplateSet:      ts,
+			UseHTTPS:         false,
 		})
 	}
 
@@ -287,8 +313,8 @@ func run(c *cli.Context) error {
 	// close database connection
 	wasabee.Disconnect()
 
-	if c.String("https") != "none" {
-		_ = wasabeehttps.Shutdown()
+	if c.String("https") != "none" || c.String("http") != "none" {
+		_ = wasabeehttp.Shutdown()
 	}
 
 	return nil

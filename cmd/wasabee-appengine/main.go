@@ -115,8 +115,8 @@ func main() {
 	}
 
 	// Serve HTTP
-	go wasabeehttps.StartAppEngine(wasabeehttps.Configuration{
-		ListenHTTPS:  ":" + port,
+	go wasabeehttp.StartAppEngine(wasabeehttp.Configuration{
+		ListenHTTP:  ":" + port,
 		FrontendPath: frontend,
 		Root:         root,
 		OauthConfig: &oauth2.Config{
@@ -155,7 +155,7 @@ func main() {
 	if r, _ := wasabee.TGRunning(); r {
 		wasabeetelegram.Shutdown()
 	}
-	_ = wasabeehttps.Shutdown()
+	_ = wasabeehttp.Shutdown()
 
 	// close database connection
 	wasabee.Disconnect()

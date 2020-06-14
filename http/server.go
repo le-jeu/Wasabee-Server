@@ -1,4 +1,4 @@
-package wasabeehttps
+package wasabeehttp
 
 import (
 	"context"
@@ -22,11 +22,11 @@ import (
 	"github.com/unrolled/logger"
 )
 
-// Configuration is the main configuration data for the https server
+// Configuration is the main configuration data for the http server
 // an initial config is sent from main() and that is updated with defaults
 // in the initializeConfig function
 type Configuration struct {
-	ListenHTTPS      string
+	ListenHTTP       string
 	FrontendPath     string
 	Root             string
 	path             string
@@ -39,6 +39,7 @@ type Configuration struct {
 	CookieSessionKey string
 	TemplateSet      map[string]*template.Template // allow multiple translations
 	Logfile          string
+	UseHTTPS         bool
 	srv              *http.Server
 	logfileHandle    *os.File
 	unrolled         *logger.Logger
@@ -111,10 +112,9 @@ func initializeConfig(initialConfig Configuration) {
 	wasabee.Log.Debugw("startup", "Certificate Directory", config.CertDir)
 
 	if config.Logfile == "" {
-		// wasabee.Log.Warn("https logfile unset: defaulting to 'wasabee-https.log'")
-		config.Logfile = "wasabee-https.log"
+		config.Logfile = "wasabee-http.log"
 	}
-	wasabee.Log.Debugw("startup", "https logfile", config.Logfile)
+	wasabee.Log.Debugw("startup", "http logfile", config.Logfile)
 	// #nosec
 	config.logfileHandle, err = os.OpenFile(config.Logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -165,11 +165,13 @@ func StartHTTP(initialConfig Configuration) {
 	// serve
 	config.srv = &http.Server{
 		Handler:           router,
-		Addr:              config.ListenHTTPS,
+		Addr:              config.ListenHTTP,
 		WriteTimeout:      wasabee.GetTimeout(15 * time.Second),
 		ReadTimeout:       wasabee.GetTimeout(15 * time.Second),
 		ReadHeaderTimeout: wasabee.GetTimeout(2 * time.Second),
-		TLSConfig: &tls.Config{
+	}
+	if config.UseHTTPS {
+		config.srv.TLSConfig = &tls.Config{
 			MinVersion:               tls.VersionTLS12,
 			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
 			PreferServerCipherSuites: true,
@@ -181,13 +183,17 @@ func StartHTTP(initialConfig Configuration) {
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 			},
-		},
-	}
+		}
 
-	wasabee.Log.Infow("startup", "port", config.ListenHTTPS, "url", config.Root, "message", "online at "+config.Root)
-	if err := config.srv.ListenAndServeTLS(config.CertDir+"/wasabee.fullchain.pem", config.CertDir+"/wasabee.key"); err != nil {
-		wasabee.Log.Fatal(err)
-		// panic(err)
+		wasabee.Log.Infow("startup", "port", config.ListenHTTP, "url", config.Root, "message", "online at "+config.Root)
+		if err := config.srv.ListenAndServeTLS(config.CertDir+"/wasabee.fullchain.pem", config.CertDir+"/wasabee.key"); err != nil {
+			wasabee.Log.Fatal(err)
+		}
+	} else {
+		wasabee.Log.Infow("startup", "port", config.ListenHTTP, "url", config.Root, "message", "online at "+config.Root)
+		if err := config.srv.ListenAndServe(); err != nil {
+			wasabee.Log.Fatal(err)
+		}
 	}
 }
 
@@ -198,7 +204,7 @@ func StartAppEngine(ic Configuration) {
 	router := setupRouter()
 	config.srv = &http.Server{
 		Handler: router,
-		Addr:    config.ListenHTTPS,
+		Addr:    config.ListenHTTP,
 	}
 
 	if err := config.srv.ListenAndServe(); err != nil {
@@ -207,9 +213,9 @@ func StartAppEngine(ic Configuration) {
 	}
 }
 
-// Shutdown forces a graceful shutdown of the https server
+// Shutdown forces a graceful shutdown of the http server
 func Shutdown() error {
-	wasabee.Log.Infow("shutdown", "message", "shutting down HTTPS server")
+	wasabee.Log.Infow("shutdown", "message", "shutting down HTTP server")
 	if err := config.srv.Shutdown(context.Background()); err != nil {
 		wasabee.Log.Error(err)
 		return err
